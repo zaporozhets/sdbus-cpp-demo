@@ -12,12 +12,16 @@ public:
         : conn_ { std::move(conn) }
         , timer_ { io_context }
         , dbus_desc_ { io_context }
+        , event_desc_ { io_context }
 
     {
         auto poll_data = conn_->getEventLoopPollData();
         dbus_desc_.async_wait(boost::asio::posix::stream_descriptor::wait_read,
             [this](const boost::system::error_code&) { processRead(); });
         dbus_desc_.assign(poll_data.fd);
+
+        event_desc_.async_read_some(boost::asio::null_buffers(), [this](auto&, auto) { processEvent(); });
+        event_desc_.assign(poll_data.event_fd);
 
         if (poll_data.timeout_usec != UINT64_MAX) {
             timer_.async_wait([this](boost::system::error_code const&) { processTimeout(); });
@@ -43,6 +47,12 @@ private:
             [this](const boost::system::error_code&) { processRead(); });
     }
 
+    void processEvent()
+    {
+        process();
+        event_desc_.async_read_some(boost::asio::null_buffers(), [this](auto, auto) { processEvent(); });
+    }
+
     void processTimeout()
     {
         process();
@@ -53,4 +63,5 @@ private:
     std::shared_ptr<sdbus::IConnection> conn_;
     boost::asio::deadline_timer timer_;
     boost::asio::posix::stream_descriptor dbus_desc_;
+    boost::asio::posix::stream_descriptor event_desc_;
 };
