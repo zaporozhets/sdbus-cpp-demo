@@ -1,0 +1,3 @@
+[submodule "sdbus-cpp"]
+	path = sdbus-cpp
+	url = git@github.com:zaporozhets/sdbus-cpp.git
